@@ -67,6 +67,9 @@ dependencies {
     kapt(libs.hilt.android.compiler )
     implementation(libs.androidx.hilt.navigation.compose)
 
+    //gemini
+    implementation(libs.generativeai)
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
