@@ -6,6 +6,7 @@ import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
+import io.ktor.client.statement.HttpResponse
 import io.ktor.http.*
 import io.ktor.serialization.gson.*
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,15 +37,16 @@ class ChatViewModel : ViewModel() {
 
     fun sendQuestion() {
         val userQuestion = _question.value
+        val apiKey = BuildConfig.API_KEY
         if (userQuestion.isBlank()) return
 
         _isLoading.value = true
 
         viewModelScope.launch {
             try {
-                val response: ApiResponse = httpClient.post("https://api.openai.com/v1/chat/completions") {
+                val response: HttpResponse = httpClient.post("https://api.openai.com/v1/chat/completions") {
                     headers {
-                        append(HttpHeaders.Authorization, "Bearer SUA_CHAVE_API")
+                        append(HttpHeaders.Authorization, "Bearer $apiKey")
                     }
                     contentType(ContentType.Application.Json)
                     setBody(
@@ -53,11 +55,25 @@ class ChatViewModel : ViewModel() {
                             "messages" to listOf(mapOf("role" to "user", "content" to userQuestion))
                         )
                     )
-                }.body()
+                }
 
-                _answer.value = response.choices.firstOrNull()?.message?.content ?: "Sem resposta"
+                if (response.status == HttpStatusCode.OK) {
+                    val apiResponse: ApiResponse = response.body()
+                    if (apiResponse.choices != null && apiResponse.choices.isNotEmpty()) {
+                        _answer.value = apiResponse.choices.first().message.content
+                        println("Primeira mensagem: ${apiResponse.choices.first().message.content}")
+                    } else {
+                        println("Nenhuma mensagem recebida ou 'choices' é null.")
+                        _answer.value = "Nenhuma resposta da API."
+                    }
+                } else {
+                    println("Erro HTTP: ${response.status}")
+                    _answer.value = "Erro HTTP: ${response.status}"
+                }
+
             } catch (e: Exception) {
                 _answer.value = "Erro: ${e.localizedMessage}"
+                println("Erro ao fazer a requisição: ${e.localizedMessage}")
             } finally {
                 _isLoading.value = false
             }
