@@ -2,6 +2,7 @@ package com.example.myiachats
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.ai.client.generativeai.GenerativeModel
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.plugins.contentnegotiation.*
@@ -41,15 +42,12 @@ class ChatViewModel : ViewModel() {
             try {
                 _isLoading.value = true
 
-                // Inicia as chamadas em paralelo
                 val chatGptResponseDeferred = async { callChatGptApi() }
                 val otherApiResponseDeferred = async { callOtherApi() }
 
-                // Aguarda ambas as respostas
                 val chatGptResponse = chatGptResponseDeferred.await()
                 val otherApiResponse = otherApiResponseDeferred.await()
 
-                // Atualiza os estados
                 _answer.value = chatGptResponse
                 _otherApiResponse.value = otherApiResponse
             } catch (e: Exception) {
@@ -61,14 +59,13 @@ class ChatViewModel : ViewModel() {
         }
     }
 
-
-    // Função para a chamada da API do ChatGPT
     private suspend fun callChatGptApi(): String {
         return try {
+            val apiKey = BuildConfig.API_KEY_CHATGPT
             val response: ApiResponse =
                 httpClient.post("https://api.openai.com/v1/chat/completions") {
                     headers {
-                        append(HttpHeaders.Authorization, "Bearer YOUR_CHATGPT_API_KEY")
+                        append(HttpHeaders.Authorization, "Bearer $apiKey")
                     }
                     contentType(ContentType.Application.Json)
                     setBody(
@@ -91,23 +88,16 @@ class ChatViewModel : ViewModel() {
         }
     }
 
-    // Função para a chamada da outra API
     private suspend fun callOtherApi(): String {
         return try {
-            val response: ApiResponse = httpClient.post("https://api.other.com/endpoint") {
-                headers {
-                    append(HttpHeaders.Authorization, "Bearer YOUR_OTHER_API_KEY")
-                }
-                contentType(ContentType.Application.Json)
-                setBody(
-                    mapOf(
-                        "question" to _question.value
-                    )
-                )
-            }.body()
-
-            response.choices.firstOrNull()?.message?.content
-                ?: "Nenhuma resposta recebida da outra API."
+            val apiKey = BuildConfig.API_KEY_GEMINI
+            val model = GenerativeModel(
+                modelName = "gemini-1.5-pro",
+                apiKey = apiKey
+            )
+            val message = model.generateContent(_question.value)
+            message.text
+            ?: "Nenhuma resposta recebida da outra API."
         } catch (e: Exception) {
             "Erro ao chamar a outra API: ${e.localizedMessage}"
         }

@@ -18,6 +18,8 @@ import com.example.myiachats.ChatViewModel
 fun ChatScreen(viewModel: ChatViewModel) {
     val question by viewModel.question.collectAsState()
     val answer by viewModel.answer.collectAsState()
+    val otherApiResponse by viewModel.otherApiResponse.collectAsState()
+
     val isLoading by viewModel.isLoading.collectAsState()
 
     Column(
@@ -25,6 +27,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
             .fillMaxSize()
             .padding(16.dp)
     ) {
+        Spacer(modifier = Modifier.height(24.dp))
         Text(
             text = "Pergunte ao ChatGPT",
             style = MaterialTheme.typography.headlineLarge,
@@ -54,9 +57,9 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 Text("Enviar")
             }
         }
+        Spacer(modifier = Modifier.height(16.dp))
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
-
         LazyColumn(modifier = Modifier.fillMaxSize()) {
             item {
                 if (answer?.isNotBlank() == true) {
@@ -74,6 +77,18 @@ fun ChatScreen(viewModel: ChatViewModel) {
                         text = "A resposta aparecerá aqui.",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                if (otherApiResponse.isNotBlank()) {
+                    Text(
+                        text = "Resposta da Outra API:",
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    Text(
+                        text = otherApiResponse,
+                        style = MaterialTheme.typography.bodyLarge
                     )
                 }
             }
