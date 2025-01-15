@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     id("com.google.dagger.hilt.android")
     id("org.jetbrains.kotlin.kapt")
+    kotlin("plugin.serialization") version "2.0.0"
 }
 
 android {
@@ -27,6 +28,7 @@ android {
 
         buildConfigField("String", "API_KEY_CHATGPT", localProperties.getProperty("API_KEY_CHATGPT"))
         buildConfigField("String", "API_KEY_GEMINI", localProperties.getProperty("API_KEY_GEMINI"))
+        buildConfigField("String", "API_KEY_BING", localProperties.getProperty("API_KEY_BING"))
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -80,6 +82,9 @@ dependencies {
 
     //gemini
     implementation(libs.generativeai)
+
+    implementation(libs.kotlinx.serialization.json)
+
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

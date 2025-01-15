@@ -7,25 +7,33 @@ import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
+import io.ktor.client.statement.HttpResponse
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.*
+import io.ktor.http.ContentType.Application.Json
 import io.ktor.serialization.gson.*
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
+
 
 class ChatViewModel : ViewModel() {
     private val _question = MutableStateFlow("")
     val question: StateFlow<String> = _question
 
-    private val _answer = MutableStateFlow<String?>(null)
-    val answer: StateFlow<String?> = _answer
+    private val _chatGptAnswer = MutableStateFlow<String?>(null)
+    val chatGptAnswer: StateFlow<String?> = _chatGptAnswer
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading
 
-    private val _otherApiResponse = MutableStateFlow("")
-    val otherApiResponse: StateFlow<String> = _otherApiResponse
+    private val _geminiAnswer = MutableStateFlow<String?>(null)
+    val geminiAnswer: StateFlow<String?> = _geminiAnswer
+
+    private val _bingAnswer = MutableStateFlow<String?>(null)
+    val bingAnswer: StateFlow<String?> = _bingAnswer
 
     private val httpClient = HttpClient {
         install(ContentNegotiation) {
@@ -43,27 +51,28 @@ class ChatViewModel : ViewModel() {
                 _isLoading.value = true
 
                 val chatGptResponseDeferred = async { callChatGptApi() }
-                val otherApiResponseDeferred = async { callOtherApi() }
+                val geminiResponseDeferred = async { callGeminiApi() }
+                val bingResponseDeferred = async { callBingApi() }
 
-                val chatGptResponse = chatGptResponseDeferred.await()
-                val otherApiResponse = otherApiResponseDeferred.await()
-
-                _answer.value = chatGptResponse
-                _otherApiResponse.value = otherApiResponse
+                //_chatGptAnswer.value = chatGptResponseDeferred.await()
+                _geminiAnswer.value = geminiResponseDeferred.await()
+                _bingAnswer.value = bingResponseDeferred.await()
             } catch (e: Exception) {
-                _answer.value = "Erro ao chamar APIs: ${e.localizedMessage}"
-                _otherApiResponse.value = "Erro ao chamar APIs: ${e.localizedMessage}"
+                // Trate os erros individualmente para cada API, se necessário
+                _chatGptAnswer.value = "Erro ao chamar ChatGPT: ${e.localizedMessage}"
+                _geminiAnswer.value = "Erro ao chamar Gemini: ${e.localizedMessage}"
+                _bingAnswer.value = "Erro ao chamar Bing: ${e.localizedMessage}"
             } finally {
                 _isLoading.value = false
             }
         }
     }
 
-    private suspend fun callChatGptApi(): String {
-        return try {
-            val apiKey = BuildConfig.API_KEY_CHATGPT
-            val response: ApiResponse =
-                httpClient.post("https://api.openai.com/v1/chat/completions") {
+    private fun callChatGptApi() {
+        viewModelScope.launch {
+            try {
+                val apiKey = BuildConfig.API_KEY_CHATGPT
+                val response: ApiResponse = httpClient.post("https://api.openai.com/v1/chat/completions") {
                     headers {
                         append(HttpHeaders.Authorization, "Bearer $apiKey")
                     }
@@ -74,32 +83,73 @@ class ChatViewModel : ViewModel() {
                             "messages" to listOf(
                                 mapOf(
                                     "role" to "user",
-                                    "content" to _question.value
+                                    "content" to _chatGptAnswer.value
                                 )
                             )
                         )
                     )
                 }.body()
 
-            response.choices.firstOrNull()?.message?.content
-                ?: "Nenhuma resposta recebida do ChatGPT."
-        } catch (e: Exception) {
-            "Erro ao chamar ChatGPT: ${e.localizedMessage}"
+                // Verifica se há escolhas na resposta
+                val choice = response.choices.firstOrNull()
+                if (choice != null) {
+                    _chatGptAnswer.value = choice.message.content
+                } else {
+                    _chatGptAnswer.value = "Nenhuma resposta recebida. Verifique os dados enviados."
+                    println("Resposta da API: $response") // Log para depuração
+                }
+            } catch (e: Exception) {
+                _chatGptAnswer.value = "Erro ao chamar a API: ${e.localizedMessage}"
+                e.printStackTrace() // Log detalhado do erro
+            }
         }
     }
 
-    private suspend fun callOtherApi(): String {
+    private suspend fun callGeminiApi(): String {
         return try {
             val apiKey = BuildConfig.API_KEY_GEMINI
             val model = GenerativeModel(
                 modelName = "gemini-1.5-pro",
                 apiKey = apiKey
             )
-            val message = model.generateContent(_question.value)
+            val message = _question.value.let { model.generateContent(it) }
             message.text
             ?: "Nenhuma resposta recebida da outra API."
         } catch (e: Exception) {
             "Erro ao chamar a outra API: ${e.localizedMessage}"
+        }
+    }
+
+    private suspend fun callBingApi() {
+        try {
+            val apiKey = BuildConfig.API_KEY_BING
+            val response: HttpResponse = httpClient.post("https://<seu-endpoint>.openai.azure.com/openai/deployments/<seu-deployment>/chat/completions?api-version=2023-05-15") {
+                headers {
+                    append(HttpHeaders.Authorization, "Bearer $apiKey")
+                }
+                contentType(ContentType.Application.Json)
+                setBody(
+                    mapOf(
+                        "messages" to listOf(
+                            mapOf("role" to "user", "content" to _question.value)
+                        )
+                    )
+                )
+            }
+
+            val jsonResponse = response.bodyAsText()
+            println("Resposta do Azure OpenAI: $jsonResponse")
+
+            val apiResponse = Json.decodeFromString<ApiResponse>(jsonResponse)
+            val choice = apiResponse.choices?.firstOrNull()
+            if (choice != null) {
+                _bingAnswer.value = choice.message.content
+            } else {
+                _bingAnswer.value = "Nenhuma resposta recebida do Azure OpenAI."
+            }
+        } catch (e: Exception) {
+            _bingAnswer.value = "Erro ao chamar o Azure OpenAI: ${e.localizedMessage}"
+            e.printStackTrace()
         }
     }
 

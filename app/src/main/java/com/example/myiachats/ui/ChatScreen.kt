@@ -17,8 +17,9 @@ import com.example.myiachats.ChatViewModel
 @Composable
 fun ChatScreen(viewModel: ChatViewModel) {
     val question by viewModel.question.collectAsState()
-    val answer by viewModel.answer.collectAsState()
-    val otherApiResponse by viewModel.otherApiResponse.collectAsState()
+    val chatGptAnswer by viewModel.chatGptAnswer.collectAsState()
+    val geminiAnswer by viewModel.geminiAnswer.collectAsState()
+    val bingAnswer by viewModel.bingAnswer.collectAsState()
 
     val isLoading by viewModel.isLoading.collectAsState()
 
@@ -62,37 +63,31 @@ fun ChatScreen(viewModel: ChatViewModel) {
         HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
         LazyColumn(modifier = Modifier.fillMaxSize()) {
             item {
-                if (answer?.isNotBlank() == true) {
-                    Text(
-                        text = "Resposta do ChatGPT:",
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                    Text(
-                        text = answer!!,
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                } else {
-                    Text(
-                        text = "A resposta aparecerá aqui.",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                    )
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-                if (otherApiResponse.isNotBlank()) {
-                    Text(
-                        text = "Resposta da Outra API:",
-                        style = MaterialTheme.typography.bodyLarge,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                    Text(
-                        text = otherApiResponse,
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                }
+                ResponseItem(titulo = "ChatGPT", resposta = chatGptAnswer)
+            }
+            item {
+                ResponseItem(titulo = "Gemini", resposta = geminiAnswer)
+            }
+            item {
+                ResponseItem(titulo = "Bing", resposta = bingAnswer)
             }
         }
+    }
+}
+
+@Composable
+fun ResponseItem(titulo: String, resposta: String?) {
+    if (resposta != null) {
+        Text(
+            text = "Resposta de $titulo:",
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        Text(
+            text = resposta,
+            style = MaterialTheme.typography.bodyLarge
+        )
+        Spacer(modifier = Modifier.height(16.dp))
     }
 }
 
