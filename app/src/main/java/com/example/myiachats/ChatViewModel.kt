@@ -12,11 +12,9 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.*
 import io.ktor.http.ContentType.Application.Json
 import io.ktor.serialization.gson.*
-import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import kotlinx.serialization.json.Json
 
 
 class ChatViewModel : ViewModel() {
@@ -49,16 +47,10 @@ class ChatViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 _isLoading.value = true
-
-                val chatGptResponseDeferred = async { callChatGptApi() }
-                val geminiResponseDeferred = async { callGeminiApi() }
-                val bingResponseDeferred = async { callBingApi() }
-
-                //_chatGptAnswer.value = chatGptResponseDeferred.await()
-                _geminiAnswer.value = geminiResponseDeferred.await()
-                _bingAnswer.value = bingResponseDeferred.await()
+                callChatGptApi()
+                callGeminiApi()
+                callBingApi()
             } catch (e: Exception) {
-                // Trate os erros individualmente para cada API, se necessário
                 _chatGptAnswer.value = "Erro ao chamar ChatGPT: ${e.localizedMessage}"
                 _geminiAnswer.value = "Erro ao chamar Gemini: ${e.localizedMessage}"
                 _bingAnswer.value = "Erro ao chamar Bing: ${e.localizedMessage}"
@@ -76,7 +68,7 @@ class ChatViewModel : ViewModel() {
                     headers {
                         append(HttpHeaders.Authorization, "Bearer $apiKey")
                     }
-                    contentType(ContentType.Application.Json)
+                    contentType(Json)
                     setBody(
                         mapOf(
                             "model" to "gpt-3.5-turbo",
@@ -89,8 +81,6 @@ class ChatViewModel : ViewModel() {
                         )
                     )
                 }.body()
-
-                // Verifica se há escolhas na resposta
                 val choice = response.choices.firstOrNull()
                 if (choice != null) {
                     _chatGptAnswer.value = choice.message.content
@@ -105,16 +95,15 @@ class ChatViewModel : ViewModel() {
         }
     }
 
-    private suspend fun callGeminiApi(): String {
-        return try {
+    private suspend fun callGeminiApi() {
+        try {
             val apiKey = BuildConfig.API_KEY_GEMINI
             val model = GenerativeModel(
                 modelName = "gemini-1.5-pro",
                 apiKey = apiKey
             )
             val message = _question.value.let { model.generateContent(it) }
-            message.text
-            ?: "Nenhuma resposta recebida da outra API."
+            _geminiAnswer.value = message.text
         } catch (e: Exception) {
             "Erro ao chamar a outra API: ${e.localizedMessage}"
         }
@@ -127,7 +116,7 @@ class ChatViewModel : ViewModel() {
                 headers {
                     append(HttpHeaders.Authorization, "Bearer $apiKey")
                 }
-                contentType(ContentType.Application.Json)
+                contentType(Json)
                 setBody(
                     mapOf(
                         "messages" to listOf(
@@ -140,8 +129,8 @@ class ChatViewModel : ViewModel() {
             val jsonResponse = response.bodyAsText()
             println("Resposta do Azure OpenAI: $jsonResponse")
 
-            val apiResponse = Json.decodeFromString<ApiResponse>(jsonResponse)
-            val choice = apiResponse.choices?.firstOrNull()
+            val apiResponse = kotlinx.serialization.json.Json.decodeFromString<ApiResponse>(jsonResponse)
+            val choice = apiResponse.choices.firstOrNull()
             if (choice != null) {
                 _bingAnswer.value = choice.message.content
             } else {
