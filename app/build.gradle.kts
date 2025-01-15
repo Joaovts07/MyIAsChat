@@ -1,7 +1,12 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    id("com.google.dagger.hilt.android")
+    id("org.jetbrains.kotlin.kapt")
+    kotlin("plugin.serialization") version "2.0.0"
 }
 
 android {
@@ -14,7 +19,17 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
-        buildConfigField("String", "API_KEY", "\"${System.getenv("API_KEY") ?: "API_KEY"}\"")
+
+        val localProperties = Properties()
+        val localPropertiesFile = rootProject.file("local.properties")
+        if (localPropertiesFile.exists()) {
+            localPropertiesFile.inputStream().use { localProperties.load(it) }
+        }
+
+        buildConfigField("String", "API_KEY_CHATGPT", localProperties.getProperty("API_KEY_CHATGPT"))
+        buildConfigField("String", "API_KEY_GEMINI", localProperties.getProperty("API_KEY_GEMINI"))
+        buildConfigField("String", "API_KEY_BING", localProperties.getProperty("API_KEY_BING"))
+
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -59,6 +74,18 @@ dependencies {
     implementation(libs.ktor.ktor.client.logging)
     implementation(libs.ktor.ktor.client.content.negotiation)
     implementation(libs.ktor.ktor.serialization.gson)
+
+    //hilt
+    implementation(libs.hilt.android)
+    kapt(libs.hilt.android.compiler )
+    implementation(libs.androidx.hilt.navigation.compose)
+
+    //gemini
+    implementation(libs.generativeai)
+
+    implementation(libs.kotlinx.serialization.json)
+
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
