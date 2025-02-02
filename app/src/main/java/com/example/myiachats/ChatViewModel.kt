@@ -16,7 +16,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
-
 class ChatViewModel : ViewModel() {
     private val _question = MutableStateFlow("")
     val question: StateFlow<String> = _question
@@ -32,6 +31,9 @@ class ChatViewModel : ViewModel() {
 
     private val _bingAnswer = MutableStateFlow<String?>(null)
     val bingAnswer: StateFlow<String?> = _bingAnswer
+
+    private val _deepSeekAnswer = MutableStateFlow<String?>(null)
+    val deepSeekAnswer: StateFlow<String?> = _deepSeekAnswer
 
     private val httpClient = HttpClient {
         install(ContentNegotiation) {
@@ -50,10 +52,12 @@ class ChatViewModel : ViewModel() {
                 callChatGptApi()
                 callGeminiApi()
                 callBingApi()
+                callDeepSeekApi()
             } catch (e: Exception) {
                 _chatGptAnswer.value = "Erro ao chamar ChatGPT: ${e.localizedMessage}"
                 _geminiAnswer.value = "Erro ao chamar Gemini: ${e.localizedMessage}"
                 _bingAnswer.value = "Erro ao chamar Bing: ${e.localizedMessage}"
+                _deepSeekAnswer.value = "Erro ao chamar DeepSeek: ${e.localizedMessage}"
             } finally {
                 _isLoading.value = false
             }
@@ -90,7 +94,7 @@ class ChatViewModel : ViewModel() {
                 }
             } catch (e: Exception) {
                 _chatGptAnswer.value = "Erro ao chamar a API: ${e.localizedMessage}"
-                e.printStackTrace() // Log detalhado do erro
+                e.printStackTrace()
             }
         }
     }
@@ -142,6 +146,40 @@ class ChatViewModel : ViewModel() {
         }
     }
 
+    private suspend fun callDeepSeekApi() {
+        try {
+            val apiKey = BuildConfig.API_KEY_DEEPSEEK
+            val response: HttpResponse = httpClient.post("https://api.deepseek.com/v1/chat/completions") {
+                headers {
+                    append(HttpHeaders.Authorization, "Bearer $apiKey")
+                }
+                contentType(Json)
+                setBody(
+                    mapOf(
+                        "model" to "deepseek-1.0", // Substitua pelo modelo correto
+                        "messages" to listOf(
+                            mapOf("role" to "user", "content" to _question.value)
+                        )
+                    )
+                )
+            }
+
+            val jsonResponse = response.bodyAsText()
+            println("Resposta do DeepSeek: $jsonResponse")
+
+            val apiResponse = kotlinx.serialization.json.Json.decodeFromString<ApiResponse>(jsonResponse)
+            val choice = apiResponse.choices.firstOrNull()
+            if (choice != null) {
+                _deepSeekAnswer.value = choice.message.content
+            } else {
+                _deepSeekAnswer.value = "Nenhuma resposta recebida do DeepSeek."
+            }
+        } catch (e: Exception) {
+            _deepSeekAnswer.value = "Erro ao chamar o DeepSeek: ${e.localizedMessage}"
+            e.printStackTrace()
+        }
+    }
+
     data class ApiResponse(
         val choices: List<Choice>
     )
@@ -154,5 +192,4 @@ class ChatViewModel : ViewModel() {
         val role: String,
         val content: String
     )
-
 }
