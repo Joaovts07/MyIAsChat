@@ -29,6 +29,7 @@ android {
         buildConfigField("String", "API_KEY_CHATGPT", localProperties.getProperty("API_KEY_CHATGPT"))
         buildConfigField("String", "API_KEY_GEMINI", localProperties.getProperty("API_KEY_GEMINI"))
         buildConfigField("String", "API_KEY_BING", localProperties.getProperty("API_KEY_BING"))
+        buildConfigField("String", "API_KEY_DEEPSEEK", localProperties.getProperty("API_KEY_DEEPSEEK"))
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
